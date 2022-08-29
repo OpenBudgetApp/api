@@ -1,0 +1,8 @@
+/target
+
+# db
+db.sqlite
+
+# Environment
+tags
+.env

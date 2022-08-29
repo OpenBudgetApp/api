@@ -1,0 +1,20 @@
+[package]
+name = "oba_api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rocket = { version = "0.5.0-rc.2", features = ["json"] }
+dotenv = "0.15.0"
+
+[dependencies.chrono]
+version = "0.4"
+features = ["serde"]
+
+[dependencies.diesel]
+version = "1.4.8"
+features = ["sqlite", "chrono"]
+
+[dependencies.rocket_sync_db_pools]
+version = "0.1.0-rc.2"
+features = ["diesel_sqlite_pool"]
