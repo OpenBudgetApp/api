@@ -196,7 +196,11 @@ fn test_transaction_destroy() {
     let client = &setup.client;
     let account_id = setup.create_account();
     // Create a transaction
-    default_transaction(account_id);
+    let transaction_form = default_transaction(account_id);
+    client
+        .post(URL_TRANSACTION)
+        .json(&transaction_form)
+        .dispatch();
     // Delete all transactions
     assert_eq!(
         client.delete(URL_TRANSACTION).dispatch().status(),
