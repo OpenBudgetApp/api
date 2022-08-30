@@ -12,11 +12,13 @@ env:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v3
     - name: Build
       run: cargo build --verbose
+    - name: Setup database
+      run: diesel setup --database-url db.sqlite
     - name: Run tests
       run: cargo test --verbose -- --test-threads=1
