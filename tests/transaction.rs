@@ -31,7 +31,7 @@ fn test_transaction_create() {
             .post(URL_TRANSACTION)
             .json(&transaction_form)
             .dispatch();
-        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.status(), Status::Created);
         assert_eq!(
             response.into_json::<TransactionForm>(),
             Some(transaction_form)

@@ -4,7 +4,7 @@ use crate::schema;
 use chrono::NaiveDate;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use rocket::fairing::AdHoc;
-use rocket::response::status::{Conflict, NotFound};
+use rocket::response::status::{Conflict, NotFound, Created};
 use rocket::serde::json::Json;
 use rocket::{delete, get, post, put, routes};
 
@@ -35,7 +35,7 @@ async fn read(db: DbConnection, id: i32) -> Result<Json<Transaction>, NotFound<&
 async fn create(
     db: DbConnection,
     form: Json<TransactionForm>,
-) -> Result<Json<Transaction>, Conflict<String>> {
+) -> Result<Created<Json<Transaction>>, Conflict<String>> {
     db.run(move |conn| {
         diesel::insert_into(schema::transactions::table)
             .values(&*form)
@@ -43,7 +43,7 @@ async fn create(
     })
     .await
     .map_err(|e| Conflict(Some(e.to_string())))?;
-    Ok(get_last_transaction(&db).await.map(Json).unwrap())
+    Ok(Created::new("/").body(get_last_transaction(&db).await.map(Json).unwrap()))
 }
 
 #[delete("/<id>")]

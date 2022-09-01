@@ -17,7 +17,7 @@ fn test_account_create() {
     for account_index in 1..=ACCOUNT_NUMBER {
         let account_form = AccountForm::new(format!("account_name_{account_index}"));
         let response = client.post(URL).json(&account_form).dispatch();
-        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.status(), Status::Created);
         assert_eq!(response.into_json::<AccountForm>(), Some(account_form));
     }
 }
