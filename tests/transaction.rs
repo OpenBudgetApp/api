@@ -18,9 +18,6 @@ fn default_transaction(account_id: i32) -> TransactionForm {
     }
 }
 
-// TODO test
-//   - Invalid values for form
-//   - Invalid index for account_id
 #[test]
 fn test_transaction_create() {
     // Setup test
@@ -40,6 +37,21 @@ fn test_transaction_create() {
             Some(transaction_form)
         );
     }
+}
+
+#[test]
+fn test_transaction_create_invalid_account_id() {
+    // Setup test
+    let setup = Setup::new();
+    let client = &setup.client;
+    let account_id = setup.create_account();
+    // Create transactions
+    let transaction_form = default_transaction(account_id+1);
+    let response = client
+        .post(URL_TRANSACTION)
+        .json(&transaction_form)
+        .dispatch();
+    assert_eq!(response.status(), Status::Conflict);
 }
 
 #[test]
