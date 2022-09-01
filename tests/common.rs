@@ -1,5 +1,6 @@
 use oba_api::models::{Account, AccountForm};
 use rocket::local::blocking::Client;
+use chrono::Local;
 
 use oba_api::api::{account, transaction};
 use oba_api::DbConnection;
@@ -26,7 +27,7 @@ impl Setup {
     pub fn create_account(&self) -> i32 {
         self.client
             .post(URL_ACCOUNT)
-            .json(&AccountForm::new(format!("account_name")))
+            .json(&AccountForm::new(format!("account_{}", Local::now().to_rfc3339())))
             .dispatch()
             .into_json::<Account>()
             .unwrap()
