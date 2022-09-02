@@ -15,6 +15,7 @@ fn default_transaction(account_id: i32) -> TransactionForm {
         133.7,
         date,
         account_id,
+        None,
     )
 }
 
@@ -46,7 +47,7 @@ fn test_transaction_create_invalid_account_id() {
     let client = &setup.client;
     let account_id = setup.create_account();
     // Create transactions
-    let transaction_form = default_transaction(account_id+1);
+    let transaction_form = default_transaction(account_id + 1);
     let response = client
         .post(URL_TRANSACTION)
         .json(&transaction_form)
@@ -240,10 +241,10 @@ fn test_transaction_per_account() {
     // Create a few transactions for the second account
     let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
     let transactions = [
-        TransactionForm::new(String::from("t1"), 10.1, date, account_id),
-        TransactionForm::new(String::from("t2"), 20.2, date, account_id),
-        TransactionForm::new(String::from("t3"), 30.3, date, account_id),
-        TransactionForm::new(String::from("t4"), 40.4, date, account_id),
+        TransactionForm::new(String::from("t1"), 10.1, date, account_id, None),
+        TransactionForm::new(String::from("t2"), 20.2, date, account_id, None),
+        TransactionForm::new(String::from("t3"), 30.3, date, account_id, None),
+        TransactionForm::new(String::from("t4"), 40.4, date, account_id, None),
     ];
     for transaction in &transactions {
         client.post(URL_TRANSACTION).json(transaction).dispatch();
@@ -269,24 +270,27 @@ fn test_transaction_per_month() {
     // Create a few transactions
     let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
     let transactions = [
-        TransactionForm::new(String::from("t1_june"), 10.1, date, account_id),
+        TransactionForm::new(String::from("t1_june"), 10.1, date, account_id, None),
         TransactionForm::new(
             String::from("t2_july"),
             20.2,
             date + Duration::days(31),
             account_id,
+            None,
         ),
         TransactionForm::new(
             String::from("t4_july"),
             40.4,
             date + Duration::days(50),
             account_id,
+            None,
         ),
         TransactionForm::new(
             String::from("t3_august"),
             30.3,
             date + Duration::days(65),
             account_id,
+            None,
         ),
     ];
     for transaction in &transactions {
