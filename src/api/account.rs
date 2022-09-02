@@ -3,7 +3,7 @@ use crate::schema;
 
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use rocket::fairing::AdHoc;
-use rocket::response::status::{Conflict, NotFound};
+use rocket::response::status::{Conflict, Created, NotFound};
 use rocket::serde::json::Json;
 use rocket::{delete, get, post, put, routes};
 
@@ -34,7 +34,7 @@ async fn read(db: DbConnection, account_id: i32) -> Result<Json<Account>, NotFou
 async fn create(
     db: DbConnection,
     account_form: Json<AccountForm>,
-) -> Result<Json<Account>, Conflict<&'static str>> {
+) -> Result<Created<Json<Account>>, Conflict<&'static str>> {
     let account_name = account_form.name();
     db.run(move |conn| {
         diesel::insert_into(schema::accounts::table)
@@ -45,7 +45,7 @@ async fn create(
     .map_err(|_| Conflict(Some("Account already exists.")))?;
     // While diesel 2.0.0 isn't compatible with Rocket, we can't use `get_result`
     // Currently replacing this function manually
-    Ok(db
+    let last_account = db
         .run(move |conn| {
             schema::accounts::table
                 .filter(schema::accounts::name.eq(account_name))
@@ -53,7 +53,8 @@ async fn create(
         })
         .await
         .map(Json)
-        .unwrap())
+        .unwrap();
+    Ok(Created::new("/").body(last_account))
 }
 
 #[delete("/<account_id>")]

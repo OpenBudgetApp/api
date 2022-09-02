@@ -1,6 +1,6 @@
 mod common;
 
-use chrono::NaiveDateTime;
+use chrono::{Duration, NaiveDateTime};
 use rocket::http::Status;
 
 use oba_api::models::{Transaction, TransactionForm};
@@ -18,9 +18,6 @@ fn default_transaction(account_id: i32) -> TransactionForm {
     }
 }
 
-// TODO test
-//   - Invalid values for form
-//   - Invalid index for account_id
 #[test]
 fn test_transaction_create() {
     // Setup test
@@ -34,12 +31,27 @@ fn test_transaction_create() {
             .post(URL_TRANSACTION)
             .json(&transaction_form)
             .dispatch();
-        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.status(), Status::Created);
         assert_eq!(
             response.into_json::<TransactionForm>(),
             Some(transaction_form)
         );
     }
+}
+
+#[test]
+fn test_transaction_create_invalid_account_id() {
+    // Setup test
+    let setup = Setup::new();
+    let client = &setup.client;
+    let account_id = setup.create_account();
+    // Create transactions
+    let transaction_form = default_transaction(account_id+1);
+    let response = client
+        .post(URL_TRANSACTION)
+        .json(&transaction_form)
+        .dispatch();
+    assert_eq!(response.status(), Status::Conflict);
 }
 
 #[test]
@@ -213,5 +225,84 @@ fn test_transaction_destroy() {
             .dispatch()
             .into_json::<Vec<Transaction>>(),
         Some(vec![])
+    );
+}
+
+#[test]
+fn test_transaction_per_account() {
+    // Setup test
+    let setup = Setup::new();
+    let client = &setup.client;
+    // Create 3 accounts
+    setup.create_account();
+    let account_id = setup.create_account();
+    setup.create_account();
+    // Create a few transactions for the second account
+    let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+    let transactions = [
+        TransactionForm::new(String::from("t1"), 10.1, date, account_id),
+        TransactionForm::new(String::from("t2"), 20.2, date, account_id),
+        TransactionForm::new(String::from("t3"), 30.3, date, account_id),
+        TransactionForm::new(String::from("t4"), 40.4, date, account_id),
+    ];
+    for transaction in &transactions {
+        client.post(URL_TRANSACTION).json(transaction).dispatch();
+    }
+    // List transactions for this account for July
+    let response = client
+        .get(format!("{}/{}/transactions", URL_ACCOUNT, account_id,))
+        .dispatch();
+    // Check that the list matches
+    assert_eq!(response.status(), Status::Ok);
+    assert_eq!(
+        response.into_json::<Vec<TransactionForm>>().unwrap(),
+        transactions
+    );
+}
+
+#[test]
+fn test_transaction_per_month() {
+    // Setup test
+    let setup = Setup::new();
+    let client = &setup.client;
+    let account_id = setup.create_account();
+    // Create a few transactions
+    let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+    let transactions = [
+        TransactionForm::new(String::from("t1_june"), 10.1, date, account_id),
+        TransactionForm::new(
+            String::from("t2_july"),
+            20.2,
+            date + Duration::days(31),
+            account_id,
+        ),
+        TransactionForm::new(
+            String::from("t4_july"),
+            40.4,
+            date + Duration::days(50),
+            account_id,
+        ),
+        TransactionForm::new(
+            String::from("t3_august"),
+            30.3,
+            date + Duration::days(65),
+            account_id,
+        ),
+    ];
+    for transaction in &transactions {
+        client.post(URL_TRANSACTION).json(transaction).dispatch();
+    }
+    // List transactions for this account for July
+    let response = client
+        .get(format!(
+            "{}/{}/transactions/2022/07",
+            URL_ACCOUNT, account_id,
+        ))
+        .dispatch();
+    // Check that the list matches
+    assert_eq!(response.status(), Status::Ok);
+    assert_eq!(
+        response.into_json::<Vec<TransactionForm>>().unwrap(),
+        transactions[1..=2]
     );
 }
