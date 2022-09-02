@@ -50,11 +50,11 @@ impl AccountForm {
 #[diesel(belongs_to(Account, foreign_key = account_id))]
 #[table_name = "transactions"]
 pub struct Transaction {
-    pub id: i32,
-    pub name: String,
-    pub amount: f32,
-    pub date: NaiveDateTime,
-    pub account_id: i32,
+    id: i32,
+    name: String,
+    amount: f32,
+    date: NaiveDateTime,
+    account_id: i32,
 }
 
 #[derive(Debug, PartialEq, Insertable, AsChangeset, Associations, Serialize, Deserialize)]
@@ -62,10 +62,10 @@ pub struct Transaction {
 #[diesel(belongs_to(Account, foreign_key = account_id))]
 #[table_name = "transactions"]
 pub struct TransactionForm {
-    pub name: String,
-    pub amount: f32,
-    pub date: NaiveDateTime,
-    pub account_id: i32,
+    name: String,
+    amount: f32,
+    date: NaiveDateTime,
+    account_id: i32,
 }
 
 impl TransactionForm {

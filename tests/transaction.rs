@@ -10,12 +10,12 @@ use common::{TRANSACTION_NUMBER, URL_ACCOUNT, URL_TRANSACTION};
 
 fn default_transaction(account_id: i32) -> TransactionForm {
     let date = NaiveDateTime::parse_from_str("2022-07-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
-    TransactionForm {
-        name: String::from("transaction_name"),
-        amount: 133.7,
+    TransactionForm::new(
+        String::from("transaction_name"),
+        133.7,
         date,
         account_id,
-    }
+    )
 }
 
 #[test]
