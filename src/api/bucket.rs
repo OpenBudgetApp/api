@@ -64,10 +64,14 @@ async fn update(db: DbConnection, form: Json<BucketForm>, id: i32) -> Json<Bucke
             .filter(schema::buckets::id.eq(id))
             .set(&*form)
             .execute(conn)
+            .unwrap();
+        schema::buckets::table
+            .filter(schema::buckets::id.eq(id))
+            .first::<Bucket>(conn)
     })
     .await
-    .unwrap();
-    get_last_bucket(&db).await.map(Json).unwrap()
+    .map(Json)
+    .unwrap()
 }
 
 #[delete("/")]

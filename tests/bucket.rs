@@ -111,9 +111,11 @@ fn test_bucket_delete() {
 #[test]
 fn test_bucket_update() {
     // Setup test
-    let client = &Setup::new().client;
+    let setup = Setup::new();
+    let client = &setup.client;
     // Create an bucket and get back id
     let bucket_form = BucketForm::new(String::from("bucket_name"));
+    setup.create_bucket();
     let bucket_id = client
         .post(URL_BUCKET)
         .json(&bucket_form)
@@ -121,6 +123,7 @@ fn test_bucket_update() {
         .into_json::<Bucket>()
         .unwrap()
         .id();
+    setup.create_bucket();
     // Update bucket
     let new_bucket = BucketForm::new(String::from("new_name"));
     let response_update = client

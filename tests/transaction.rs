@@ -175,6 +175,10 @@ fn test_transaction_update() {
     let account_id = setup.create_account();
     // Create a transaction
     let transaction_form = default_transaction(account_id);
+    client
+        .post(URL_TRANSACTION)
+        .json(&transaction_form)
+        .dispatch();
     let transaction_id = client
         .post(URL_TRANSACTION)
         .json(&transaction_form)
@@ -182,6 +186,10 @@ fn test_transaction_update() {
         .into_json::<Transaction>()
         .unwrap()
         .id();
+    client
+        .post(URL_TRANSACTION)
+        .json(&transaction_form)
+        .dispatch();
     // Update transaction
     let new_transaction = transaction_form.with_name(String::from("new_transaction_name"));
     let response_update = client

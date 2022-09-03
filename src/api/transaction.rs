@@ -64,10 +64,14 @@ async fn update(db: DbConnection, form: Json<TransactionForm>, id: i32) -> Json<
             .filter(schema::transactions::id.eq(id))
             .set(&*form)
             .execute(conn)
+            .unwrap();
+        schema::transactions::table
+            .filter(schema::transactions::id.eq(id))
+            .first::<Transaction>(conn)
     })
     .await
-    .unwrap();
-    get_last_transaction(&db).await.map(Json).unwrap()
+    .map(Json)
+    .unwrap()
 }
 
 #[delete("/")]
