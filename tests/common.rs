@@ -1,5 +1,5 @@
 use chrono::Local;
-use oba_api::models::{Account, AccountForm};
+use oba_api::models::{Account, AccountForm, Bucket, BucketForm};
 use rocket::local::blocking::Client;
 
 use oba_api::api::{account, bucket, transaction};
@@ -35,6 +35,20 @@ impl Setup {
             )))
             .dispatch()
             .into_json::<Account>()
+            .unwrap()
+            .id()
+    }
+
+    #[allow(dead_code)]
+    pub fn create_bucket(&self) -> i32 {
+        self.client
+            .post(URL_BUCKET)
+            .json(&BucketForm::new(format!(
+                "bucket_{}",
+                Local::now().to_rfc3339()
+            )))
+            .dispatch()
+            .into_json::<Bucket>()
             .unwrap()
             .id()
     }

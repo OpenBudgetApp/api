@@ -2,11 +2,12 @@ mod common;
 
 use chrono::{Duration, NaiveDateTime};
 use rocket::http::Status;
+use std::iter::zip;
 
 use oba_api::models::{Transaction, TransactionForm};
 
 use common::Setup;
-use common::{TRANSACTION_NUMBER, URL_ACCOUNT, URL_TRANSACTION};
+use common::{TRANSACTION_NUMBER, URL_ACCOUNT, URL_BUCKET, URL_TRANSACTION};
 
 fn default_transaction(account_id: i32) -> TransactionForm {
     let date = NaiveDateTime::parse_from_str("2022-07-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
@@ -249,7 +250,7 @@ fn test_transaction_per_account() {
     for transaction in &transactions {
         client.post(URL_TRANSACTION).json(transaction).dispatch();
     }
-    // List transactions for this account for July
+    // List transactions for this account
     let response = client
         .get(format!("{}/{}/transactions", URL_ACCOUNT, account_id,))
         .dispatch();
@@ -309,4 +310,55 @@ fn test_transaction_per_month() {
         response.into_json::<Vec<TransactionForm>>().unwrap(),
         transactions[1..=2]
     );
+}
+
+#[test]
+fn test_transaction_per_bucket() {
+    // Setup test
+    let setup = Setup::new();
+    let client = &setup.client;
+    let account_id = setup.create_account();
+    // Create 3 accounts
+    let bucket_1_id = setup.create_bucket();
+    let bucket_2_id = setup.create_bucket();
+    let bucket_3_id = setup.create_bucket();
+    // Create a few transactions for the second account
+    let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+    let transactions = [
+        TransactionForm::new(
+            String::from("t1"),
+            10.1,
+            date,
+            account_id,
+            Some(bucket_1_id),
+        ),
+        TransactionForm::new(
+            String::from("t2"),
+            20.2,
+            date,
+            account_id,
+            Some(bucket_2_id),
+        ),
+        TransactionForm::new(
+            String::from("t3"),
+            30.3,
+            date,
+            account_id,
+            Some(bucket_3_id),
+        ),
+        TransactionForm::new(String::from("t4"), 40.4, date, account_id, None),
+    ];
+    for transaction in &transactions {
+        client.post(URL_TRANSACTION).json(transaction).dispatch();
+    }
+    for (bucket_id, transaction) in zip([bucket_1_id, bucket_2_id, bucket_3_id], &transactions) {
+        let response = client
+            .get(format!("{}/{}/transactions", URL_BUCKET, bucket_id))
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(
+            response.into_json::<Vec<TransactionForm>>().unwrap()[0],
+            *transaction
+        );
+    }
 }
