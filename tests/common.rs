@@ -2,7 +2,7 @@ use chrono::Local;
 use oba_api::models::{Account, AccountForm, Bucket, BucketForm};
 use rocket::local::blocking::Client;
 
-use oba_api::api::{account, bucket, transaction};
+use oba_api::api::{account, bucket, fill, transaction};
 use oba_api::DbConnection;
 
 pub struct Setup {
@@ -16,10 +16,12 @@ impl Setup {
                 .attach(DbConnection::fairing())
                 .attach(account::stage())
                 .attach(transaction::stage())
-                .attach(bucket::stage()),
+                .attach(bucket::stage())
+                .attach(fill::stage()),
         )
         .unwrap();
         client.delete(URL_TRANSACTION).dispatch().status();
+        client.delete(URL_FILL).dispatch().status();
         client.delete(URL_BUCKET).dispatch().status();
         client.delete(URL_ACCOUNT).dispatch().status();
         Self { client }
@@ -56,18 +58,22 @@ impl Setup {
 
 impl Drop for Setup {
     fn drop(&mut self) {
-        self.client.delete(URL_TRANSACTION).dispatch().status();
-        self.client.delete(URL_BUCKET).dispatch().status();
-        self.client.delete(URL_ACCOUNT).dispatch().status();
+        self.client.delete(URL_TRANSACTION).dispatch();
+        self.client.delete(URL_FILL).dispatch();
+        self.client.delete(URL_BUCKET).dispatch();
+        self.client.delete(URL_ACCOUNT).dispatch();
     }
 }
 
 pub const URL_TRANSACTION: &str = "/transaction";
 pub const URL_ACCOUNT: &str = "/account";
 pub const URL_BUCKET: &str = "/bucket";
+pub const URL_FILL: &str = "/fill";
 #[allow(dead_code)]
 pub const TRANSACTION_NUMBER: usize = 3;
 #[allow(dead_code)]
 pub const ACCOUNT_NUMBER: usize = 3;
 #[allow(dead_code)]
 pub const BUCKET_NUMBER: usize = 3;
+#[allow(dead_code)]
+pub const FILL_NUMBER: usize = 3;

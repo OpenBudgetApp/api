@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
 use rocket::serde::{Deserialize, Serialize};
 
-use super::schema::{accounts, buckets, transactions};
+use super::schema::{accounts, buckets, fills, transactions};
 
 #[derive(Debug, PartialEq, Queryable, Identifiable, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
@@ -47,6 +47,7 @@ impl AccountForm {
 #[derive(Debug, PartialEq, Queryable, Identifiable, Associations, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[diesel(belongs_to(Account, foreign_key = account_id))]
+#[diesel(belongs_to(Bucket, foreign_key = bucket_id))]
 #[table_name = "transactions"]
 pub struct Transaction {
     id: i32,
@@ -60,6 +61,7 @@ pub struct Transaction {
 #[derive(Debug, PartialEq, Insertable, AsChangeset, Associations, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[diesel(belongs_to(Account, foreign_key = account_id))]
+#[diesel(belongs_to(Bucket, foreign_key = bucket_id))]
 #[table_name = "transactions"]
 pub struct TransactionForm {
     name: String,
@@ -141,5 +143,55 @@ impl BucketForm {
 
     pub fn name(&self) -> String {
         self.name.clone()
+    }
+}
+
+#[derive(Debug, PartialEq, Queryable, Identifiable, Associations, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+#[diesel(belongs_to(Bucket, foreign_key = bucket_id))]
+#[table_name = "fills"]
+pub struct Fill {
+    id: i32,
+    amount: f32,
+    date: NaiveDateTime,
+    bucket_id: i32,
+}
+
+#[derive(Debug, PartialEq, Insertable, AsChangeset, Associations, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+#[diesel(belongs_to(Bucket, foreign_key = bucket_id))]
+#[table_name = "fills"]
+pub struct FillForm {
+    amount: f32,
+    date: NaiveDateTime,
+    bucket_id: i32,
+}
+
+impl FillForm {
+    pub fn new(amount: f32, date: NaiveDateTime, bucket_id: i32) -> Self {
+        Self {
+            amount,
+            date,
+            bucket_id,
+        }
+    }
+
+    pub fn with_amount(mut self, amount: f32) -> Self {
+        self.amount = amount;
+        self
+    }
+}
+
+impl Fill {
+    pub fn id(&self) -> i32 {
+        self.id.clone()
+    }
+
+    pub fn as_form(&self) -> FillForm {
+        FillForm {
+            amount: self.amount,
+            date: self.date.clone(),
+            bucket_id: self.bucket_id,
+        }
     }
 }
