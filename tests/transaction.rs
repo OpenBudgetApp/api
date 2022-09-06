@@ -2,20 +2,22 @@ mod common;
 
 use chrono::{Duration, NaiveDateTime};
 use rocket::http::Status;
+use std::iter::zip;
 
 use oba_api::models::{Transaction, TransactionForm};
 
 use common::Setup;
-use common::{TRANSACTION_NUMBER, URL_ACCOUNT, URL_TRANSACTION};
+use common::{TRANSACTION_NUMBER, URL_ACCOUNT, URL_BUCKET, URL_TRANSACTION};
 
 fn default_transaction(account_id: i32) -> TransactionForm {
     let date = NaiveDateTime::parse_from_str("2022-07-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
-    TransactionForm {
-        name: String::from("transaction_name"),
-        amount: 133.7,
+    TransactionForm::new(
+        String::from("transaction_name"),
+        133.7,
         date,
         account_id,
-    }
+        None,
+    )
 }
 
 #[test]
@@ -46,7 +48,7 @@ fn test_transaction_create_invalid_account_id() {
     let client = &setup.client;
     let account_id = setup.create_account();
     // Create transactions
-    let transaction_form = default_transaction(account_id+1);
+    let transaction_form = default_transaction(account_id + 1);
     let response = client
         .post(URL_TRANSACTION)
         .json(&transaction_form)
@@ -173,6 +175,10 @@ fn test_transaction_update() {
     let account_id = setup.create_account();
     // Create a transaction
     let transaction_form = default_transaction(account_id);
+    client
+        .post(URL_TRANSACTION)
+        .json(&transaction_form)
+        .dispatch();
     let transaction_id = client
         .post(URL_TRANSACTION)
         .json(&transaction_form)
@@ -180,6 +186,10 @@ fn test_transaction_update() {
         .into_json::<Transaction>()
         .unwrap()
         .id();
+    client
+        .post(URL_TRANSACTION)
+        .json(&transaction_form)
+        .dispatch();
     // Update transaction
     let new_transaction = transaction_form.with_name(String::from("new_transaction_name"));
     let response_update = client
@@ -240,15 +250,15 @@ fn test_transaction_per_account() {
     // Create a few transactions for the second account
     let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
     let transactions = [
-        TransactionForm::new(String::from("t1"), 10.1, date, account_id),
-        TransactionForm::new(String::from("t2"), 20.2, date, account_id),
-        TransactionForm::new(String::from("t3"), 30.3, date, account_id),
-        TransactionForm::new(String::from("t4"), 40.4, date, account_id),
+        TransactionForm::new(String::from("t1"), 10.1, date, account_id, None),
+        TransactionForm::new(String::from("t2"), 20.2, date, account_id, None),
+        TransactionForm::new(String::from("t3"), 30.3, date, account_id, None),
+        TransactionForm::new(String::from("t4"), 40.4, date, account_id, None),
     ];
     for transaction in &transactions {
         client.post(URL_TRANSACTION).json(transaction).dispatch();
     }
-    // List transactions for this account for July
+    // List transactions for this account
     let response = client
         .get(format!("{}/{}/transactions", URL_ACCOUNT, account_id,))
         .dispatch();
@@ -269,24 +279,27 @@ fn test_transaction_per_month() {
     // Create a few transactions
     let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
     let transactions = [
-        TransactionForm::new(String::from("t1_june"), 10.1, date, account_id),
+        TransactionForm::new(String::from("t1_june"), 10.1, date, account_id, None),
         TransactionForm::new(
             String::from("t2_july"),
             20.2,
             date + Duration::days(31),
             account_id,
+            None,
         ),
         TransactionForm::new(
             String::from("t4_july"),
             40.4,
             date + Duration::days(50),
             account_id,
+            None,
         ),
         TransactionForm::new(
             String::from("t3_august"),
             30.3,
             date + Duration::days(65),
             account_id,
+            None,
         ),
     ];
     for transaction in &transactions {
@@ -305,4 +318,55 @@ fn test_transaction_per_month() {
         response.into_json::<Vec<TransactionForm>>().unwrap(),
         transactions[1..=2]
     );
+}
+
+#[test]
+fn test_transaction_per_bucket() {
+    // Setup test
+    let setup = Setup::new();
+    let client = &setup.client;
+    let account_id = setup.create_account();
+    // Create 3 accounts
+    let bucket_1_id = setup.create_bucket();
+    let bucket_2_id = setup.create_bucket();
+    let bucket_3_id = setup.create_bucket();
+    // Create a few transactions for the second account
+    let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+    let transactions = [
+        TransactionForm::new(
+            String::from("t1"),
+            10.1,
+            date,
+            account_id,
+            Some(bucket_1_id),
+        ),
+        TransactionForm::new(
+            String::from("t2"),
+            20.2,
+            date,
+            account_id,
+            Some(bucket_2_id),
+        ),
+        TransactionForm::new(
+            String::from("t3"),
+            30.3,
+            date,
+            account_id,
+            Some(bucket_3_id),
+        ),
+        TransactionForm::new(String::from("t4"), 40.4, date, account_id, None),
+    ];
+    for transaction in &transactions {
+        client.post(URL_TRANSACTION).json(transaction).dispatch();
+    }
+    for (bucket_id, transaction) in zip([bucket_1_id, bucket_2_id, bucket_3_id], &transactions) {
+        let response = client
+            .get(format!("{}/{}/transactions", URL_BUCKET, bucket_id))
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(
+            response.into_json::<Vec<TransactionForm>>().unwrap()[0],
+            *transaction
+        );
+    }
 }

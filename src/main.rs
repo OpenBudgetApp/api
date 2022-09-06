@@ -1,4 +1,4 @@
-use oba_api::api::{account, transaction};
+use oba_api::api::{account, bucket, fill, transaction};
 use oba_api::DbConnection;
 
 #[rocket::main]
@@ -7,6 +7,8 @@ async fn main() -> Result<(), rocket::Error> {
         .attach(DbConnection::fairing())
         .attach(account::stage())
         .attach(transaction::stage())
+        .attach(bucket::stage())
+        .attach(fill::stage())
         .launch()
         .await?;
     Ok(())

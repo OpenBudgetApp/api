@@ -75,18 +75,14 @@ async fn update(
     account_form: Json<AccountForm>,
     account_id: i32,
 ) -> Json<Account> {
-    let account_new_name = account_form.name();
     db.run(move |conn| {
         diesel::update(schema::accounts::table)
             .filter(schema::accounts::id.eq(account_id))
             .set(&*account_form)
             .execute(conn)
-    })
-    .await
-    .unwrap();
-    db.run(move |conn| {
+            .unwrap();
         schema::accounts::table
-            .filter(schema::accounts::name.eq(account_new_name))
+            .filter(schema::accounts::id.eq(account_id))
             .first::<Account>(conn)
     })
     .await

@@ -110,9 +110,11 @@ fn test_account_delete() {
 #[test]
 fn test_account_update() {
     // Setup test
-    let client = &Setup::new().client;
+    let setup = Setup::new();
+    let client = &setup.client;
     // Create an account and get back id
     let account_form = AccountForm::new(String::from("account_name"));
+    setup.create_account();
     let account_id = client
         .post(URL)
         .json(&account_form)
@@ -120,6 +122,7 @@ fn test_account_update() {
         .into_json::<Account>()
         .unwrap()
         .id();
+    setup.create_account();
     // Update account
     let new_account = AccountForm::new(String::from("new_name"));
     let response_update = client
