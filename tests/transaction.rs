@@ -4,14 +4,11 @@ use chrono::{Duration, NaiveDateTime};
 use rocket::http::Status;
 use std::iter::zip;
 
-use oba_api::models::{Transaction, TransactionForm};
+use common::{Setup, Transaction, TRANSACTION_NUMBER, URL_ACCOUNT, URL_BUCKET, URL_TRANSACTION};
 
-use common::Setup;
-use common::{TRANSACTION_NUMBER, URL_ACCOUNT, URL_BUCKET, URL_TRANSACTION};
-
-fn default_transaction(account_id: i32) -> TransactionForm {
+fn default_transaction(account_id: i32) -> Transaction {
     let date = NaiveDateTime::parse_from_str("2022-07-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
-    TransactionForm::new(
+    Transaction::new(
         String::from("transaction_name"),
         133.7,
         date,
@@ -34,10 +31,7 @@ fn test_transaction_create() {
             .json(&transaction_form)
             .dispatch();
         assert_eq!(response.status(), Status::Created);
-        assert_eq!(
-            response.into_json::<TransactionForm>(),
-            Some(transaction_form)
-        );
+        assert_eq!(response.into_json::<Transaction>(), Some(transaction_form));
     }
 }
 
@@ -77,13 +71,7 @@ fn test_transaction_list() {
     assert_eq!(response.status(), Status::Ok);
     let transactions = response.into_json::<Vec<Transaction>>().unwrap();
     assert_eq!(transactions.len(), TRANSACTION_NUMBER);
-    assert_eq!(
-        transactions
-            .iter()
-            .map(Transaction::as_form)
-            .collect::<Vec<TransactionForm>>(),
-        transaction_forms
-    );
+    assert_eq!(transactions, transaction_forms);
 }
 
 #[test]
@@ -102,7 +90,11 @@ fn test_transaction_read() {
         .unwrap();
     // Read
     let response = client
-        .get(format!("{}/{}", URL_TRANSACTION, transaction_request.id()))
+        .get(format!(
+            "{}/{}",
+            URL_TRANSACTION,
+            transaction_request.id.unwrap()
+        ))
         .dispatch();
     assert_eq!(response.status(), Status::Ok);
     assert_eq!(
@@ -134,7 +126,8 @@ fn test_transaction_delete() {
         .dispatch()
         .into_json::<Transaction>()
         .unwrap()
-        .id();
+        .id
+        .unwrap();
     // Delete transaction
     client
         .delete(format!("{}/{}", URL_TRANSACTION, transaction_id))
@@ -185,7 +178,8 @@ fn test_transaction_update() {
         .dispatch()
         .into_json::<Transaction>()
         .unwrap()
-        .id();
+        .id
+        .unwrap();
     client
         .post(URL_TRANSACTION)
         .json(&transaction_form)
@@ -198,15 +192,15 @@ fn test_transaction_update() {
         .dispatch();
     assert_eq!(response_update.status(), Status::Ok);
     let returned_transaction = response_update.into_json::<Transaction>().unwrap();
-    assert_eq!(returned_transaction.as_form(), new_transaction);
-    assert_eq!(returned_transaction.id(), transaction_id);
+    assert_eq!(returned_transaction, new_transaction);
+    assert_eq!(returned_transaction.id.unwrap(), transaction_id);
     // Read
     let response_read = client
         .get(format!("{}/{}", URL_TRANSACTION, transaction_id))
         .dispatch();
     assert_eq!(response_read.status(), Status::Ok);
     assert_eq!(
-        response_read.into_json::<TransactionForm>(),
+        response_read.into_json::<Transaction>(),
         Some(new_transaction)
     );
 }
@@ -250,10 +244,10 @@ fn test_transaction_per_account() {
     // Create a few transactions for the second account
     let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
     let transactions = [
-        TransactionForm::new(String::from("t1"), 10.1, date, account_id, None),
-        TransactionForm::new(String::from("t2"), 20.2, date, account_id, None),
-        TransactionForm::new(String::from("t3"), 30.3, date, account_id, None),
-        TransactionForm::new(String::from("t4"), 40.4, date, account_id, None),
+        Transaction::new(String::from("t1"), 10.1, date, account_id, None),
+        Transaction::new(String::from("t2"), 20.2, date, account_id, None),
+        Transaction::new(String::from("t3"), 30.3, date, account_id, None),
+        Transaction::new(String::from("t4"), 40.4, date, account_id, None),
     ];
     for transaction in &transactions {
         client.post(URL_TRANSACTION).json(transaction).dispatch();
@@ -265,7 +259,7 @@ fn test_transaction_per_account() {
     // Check that the list matches
     assert_eq!(response.status(), Status::Ok);
     assert_eq!(
-        response.into_json::<Vec<TransactionForm>>().unwrap(),
+        response.into_json::<Vec<Transaction>>().unwrap(),
         transactions
     );
 }
@@ -279,22 +273,22 @@ fn test_transaction_per_month() {
     // Create a few transactions
     let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
     let transactions = [
-        TransactionForm::new(String::from("t1_june"), 10.1, date, account_id, None),
-        TransactionForm::new(
+        Transaction::new(String::from("t1_june"), 10.1, date, account_id, None),
+        Transaction::new(
             String::from("t2_july"),
             20.2,
             date + Duration::days(31),
             account_id,
             None,
         ),
-        TransactionForm::new(
+        Transaction::new(
             String::from("t4_july"),
             40.4,
             date + Duration::days(50),
             account_id,
             None,
         ),
-        TransactionForm::new(
+        Transaction::new(
             String::from("t3_august"),
             30.3,
             date + Duration::days(65),
@@ -315,7 +309,7 @@ fn test_transaction_per_month() {
     // Check that the list matches
     assert_eq!(response.status(), Status::Ok);
     assert_eq!(
-        response.into_json::<Vec<TransactionForm>>().unwrap(),
+        response.into_json::<Vec<Transaction>>().unwrap(),
         transactions[1..=2]
     );
 }
@@ -333,28 +327,28 @@ fn test_transaction_per_bucket() {
     // Create a few transactions for the second account
     let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
     let transactions = [
-        TransactionForm::new(
+        Transaction::new(
             String::from("t1"),
             10.1,
             date,
             account_id,
             Some(bucket_1_id),
         ),
-        TransactionForm::new(
+        Transaction::new(
             String::from("t2"),
             20.2,
             date,
             account_id,
             Some(bucket_2_id),
         ),
-        TransactionForm::new(
+        Transaction::new(
             String::from("t3"),
             30.3,
             date,
             account_id,
             Some(bucket_3_id),
         ),
-        TransactionForm::new(String::from("t4"), 40.4, date, account_id, None),
+        Transaction::new(String::from("t4"), 40.4, date, account_id, None),
     ];
     for transaction in &transactions {
         client.post(URL_TRANSACTION).json(transaction).dispatch();
@@ -365,7 +359,7 @@ fn test_transaction_per_bucket() {
             .dispatch();
         assert_eq!(response.status(), Status::Ok);
         assert_eq!(
-            response.into_json::<Vec<TransactionForm>>().unwrap()[0],
+            response.into_json::<Vec<Transaction>>().unwrap()[0],
             *transaction
         );
     }

@@ -3,14 +3,11 @@ mod common;
 use chrono::{Duration, NaiveDateTime};
 use rocket::http::Status;
 
-use oba_api::models::{Fill, FillForm};
+use common::{Fill, Setup, FILL_NUMBER, URL_BUCKET, URL_FILL};
 
-use common::Setup;
-use common::{FILL_NUMBER, URL_BUCKET, URL_FILL};
-
-fn default_fill(bucket_id: i32) -> FillForm {
+fn default_fill(bucket_id: i32) -> Fill {
     let date = NaiveDateTime::parse_from_str("2022-07-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
-    FillForm::new(133.7, date, bucket_id)
+    Fill::new(133.7, date, bucket_id)
 }
 
 #[test]
@@ -24,7 +21,7 @@ fn test_fill_create() {
         let fill_form = default_fill(bucket_id);
         let response = client.post(URL_FILL).json(&fill_form).dispatch();
         assert_eq!(response.status(), Status::Created);
-        assert_eq!(response.into_json::<FillForm>(), Some(fill_form));
+        assert_eq!(response.into_json::<Fill>(), Some(fill_form));
     }
 }
 
@@ -58,10 +55,7 @@ fn test_fill_list() {
     assert_eq!(response.status(), Status::Ok);
     let fills = response.into_json::<Vec<Fill>>().unwrap();
     assert_eq!(fills.len(), FILL_NUMBER);
-    assert_eq!(
-        fills.iter().map(Fill::as_form).collect::<Vec<FillForm>>(),
-        fill_forms
-    );
+    assert_eq!(fills, fill_forms);
 }
 
 #[test]
@@ -80,7 +74,7 @@ fn test_fill_read() {
         .unwrap();
     // Read
     let response = client
-        .get(format!("{}/{}", URL_FILL, fill_request.id()))
+        .get(format!("{}/{}", URL_FILL, fill_request.id.unwrap()))
         .dispatch();
     assert_eq!(response.status(), Status::Ok);
     assert_eq!(response.into_json::<Fill>(), Some(fill_request));
@@ -109,7 +103,8 @@ fn test_fill_delete() {
         .dispatch()
         .into_json::<Fill>()
         .unwrap()
-        .id();
+        .id
+        .unwrap();
     // Delete fill
     client
         .delete(format!("{}/{}", URL_FILL, fill_id))
@@ -155,7 +150,8 @@ fn test_fill_update() {
         .dispatch()
         .into_json::<Fill>()
         .unwrap()
-        .id();
+        .id
+        .unwrap();
     client.post(URL_FILL).json(&fill_form).dispatch();
     // Update fill
     let new_fill = fill_form.with_amount(342.4);
@@ -165,12 +161,12 @@ fn test_fill_update() {
         .dispatch();
     assert_eq!(response_update.status(), Status::Ok);
     let returned_fill = response_update.into_json::<Fill>().unwrap();
-    assert_eq!(returned_fill.as_form(), new_fill);
-    assert_eq!(returned_fill.id(), fill_id);
+    assert_eq!(returned_fill, new_fill);
+    assert_eq!(returned_fill.id.unwrap(), fill_id);
     // Read
     let response_read = client.get(format!("{}/{}", URL_FILL, fill_id)).dispatch();
     assert_eq!(response_read.status(), Status::Ok);
-    assert_eq!(response_read.into_json::<FillForm>(), Some(new_fill));
+    assert_eq!(response_read.into_json::<Fill>(), Some(new_fill));
 }
 
 #[test]
@@ -203,10 +199,10 @@ fn test_fill_per_bucket() {
     // Create a few fills for the second bucket
     let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
     let fills = [
-        FillForm::new(10.1, date, bucket_id),
-        FillForm::new(20.2, date, bucket_id),
-        FillForm::new(30.3, date, bucket_id),
-        FillForm::new(40.4, date, bucket_id),
+        Fill::new(10.1, date, bucket_id),
+        Fill::new(20.2, date, bucket_id),
+        Fill::new(30.3, date, bucket_id),
+        Fill::new(40.4, date, bucket_id),
     ];
     for fill in &fills {
         client.post(URL_FILL).json(fill).dispatch();
@@ -217,7 +213,7 @@ fn test_fill_per_bucket() {
         .dispatch();
     // Check that the list matches
     assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.into_json::<Vec<FillForm>>().unwrap(), fills);
+    assert_eq!(response.into_json::<Vec<Fill>>().unwrap(), fills);
 }
 
 #[test]
@@ -229,10 +225,10 @@ fn test_fill_per_month() {
     // Create a few fills
     let date = NaiveDateTime::parse_from_str("2022-06-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
     let fills = [
-        FillForm::new(10.1, date, bucket_id),
-        FillForm::new(20.2, date + Duration::days(31), bucket_id),
-        FillForm::new(40.4, date + Duration::days(50), bucket_id),
-        FillForm::new(30.3, date + Duration::days(65), bucket_id),
+        Fill::new(10.1, date, bucket_id),
+        Fill::new(20.2, date + Duration::days(31), bucket_id),
+        Fill::new(40.4, date + Duration::days(50), bucket_id),
+        Fill::new(30.3, date + Duration::days(65), bucket_id),
     ];
     for fill in &fills {
         client.post(URL_FILL).json(fill).dispatch();
@@ -243,5 +239,5 @@ fn test_fill_per_month() {
         .dispatch();
     // Check that the list matches
     assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.into_json::<Vec<FillForm>>().unwrap(), fills[1..=2]);
+    assert_eq!(response.into_json::<Vec<Fill>>().unwrap(), fills[1..=2]);
 }

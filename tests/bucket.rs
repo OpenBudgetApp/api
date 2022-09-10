@@ -2,9 +2,7 @@ mod common;
 
 use rocket::http::Status;
 
-use oba_api::models::{Bucket, BucketForm};
-
-use common::{Setup, BUCKET_NUMBER, URL_BUCKET};
+use common::{Bucket, Setup, BUCKET_NUMBER, URL_BUCKET};
 
 #[test]
 fn test_bucket_create() {
@@ -12,10 +10,10 @@ fn test_bucket_create() {
     let client = &Setup::new().client;
     // Create buckets
     for index in 1..=BUCKET_NUMBER {
-        let bucket_form = BucketForm::new(format!("bucket_name_{index}"));
+        let bucket_form = Bucket::new(format!("bucket_name_{index}"));
         let response = client.post(URL_BUCKET).json(&bucket_form).dispatch();
         assert_eq!(response.status(), Status::Created);
-        assert_eq!(response.into_json::<BucketForm>(), Some(bucket_form));
+        assert_eq!(response.into_json::<Bucket>(), Some(bucket_form));
     }
 }
 
@@ -24,7 +22,7 @@ fn test_bucket_create_same_name() {
     // Setup test
     let client = &Setup::new().client;
     // Create bucket twice
-    let bucket_form = BucketForm::new(String::from("bucket_name"));
+    let bucket_form = Bucket::new(String::from("bucket_name"));
     client.post(URL_BUCKET).json(&bucket_form).dispatch();
     let response = client.post(URL_BUCKET).json(&bucket_form).dispatch();
     assert_eq!(response.status(), Status::Conflict);
@@ -37,7 +35,7 @@ fn test_bucket_list() {
     // Create buckets
     let mut bucket_forms = Vec::with_capacity(BUCKET_NUMBER);
     for bucket_index in 1..=BUCKET_NUMBER {
-        let bucket = BucketForm::new(format!("bucket_name_{bucket_index}"));
+        let bucket = Bucket::new(format!("bucket_name_{bucket_index}"));
         client.post(URL_BUCKET).json(&bucket).dispatch();
         bucket_forms.push(bucket);
     }
@@ -46,13 +44,7 @@ fn test_bucket_list() {
     assert_eq!(response.status(), Status::Ok);
     let buckets = response.into_json::<Vec<Bucket>>().unwrap();
     assert_eq!(buckets.len(), BUCKET_NUMBER);
-    assert_eq!(
-        buckets
-            .iter()
-            .map(Bucket::as_form)
-            .collect::<Vec<BucketForm>>(),
-        bucket_forms
-    );
+    assert_eq!(buckets, bucket_forms);
 }
 
 #[test]
@@ -60,7 +52,7 @@ fn test_bucket_read() {
     // Setup test
     let client = &Setup::new().client;
     // Create an bucket and get back id
-    let bucket_form = BucketForm::new(String::from("bucket_name"));
+    let bucket_form = Bucket::new(String::from("bucket_name"));
     let bucket_request = client
         .post(URL_BUCKET)
         .json(&bucket_form)
@@ -69,7 +61,7 @@ fn test_bucket_read() {
         .unwrap();
     // Read
     let response = client
-        .get(format!("{}/{}", URL_BUCKET, bucket_request.id()))
+        .get(format!("{}/{}", URL_BUCKET, bucket_request.id.unwrap()))
         .dispatch();
     assert_eq!(response.status(), Status::Ok);
     assert_eq!(response.into_json::<Bucket>(), Some(bucket_request));
@@ -89,14 +81,15 @@ fn test_bucket_delete() {
     // Setup test
     let client = &Setup::new().client;
     // Create an bucket and get back id
-    let bucket_form = BucketForm::new(String::from("bucket_name"));
+    let bucket_form = Bucket::new(String::from("bucket_name"));
     let bucket_id = client
         .post(URL_BUCKET)
         .json(&bucket_form)
         .dispatch()
         .into_json::<Bucket>()
         .unwrap()
-        .id();
+        .id
+        .unwrap();
     // Delete bucket
     client
         .delete(format!("{}/{}", URL_BUCKET, bucket_id))
@@ -114,7 +107,7 @@ fn test_bucket_update() {
     let setup = Setup::new();
     let client = &setup.client;
     // Create an bucket and get back id
-    let bucket_form = BucketForm::new(String::from("bucket_name"));
+    let bucket_form = Bucket::new(String::from("bucket_name"));
     setup.create_bucket();
     let bucket_id = client
         .post(URL_BUCKET)
@@ -122,24 +115,25 @@ fn test_bucket_update() {
         .dispatch()
         .into_json::<Bucket>()
         .unwrap()
-        .id();
+        .id
+        .unwrap();
     setup.create_bucket();
     // Update bucket
-    let new_bucket = BucketForm::new(String::from("new_name"));
+    let new_bucket = Bucket::new(String::from("new_name"));
     let response_update = client
         .put(format!("{}/{}", URL_BUCKET, bucket_id))
         .json(&new_bucket)
         .dispatch();
     assert_eq!(response_update.status(), Status::Ok);
     let returned_bucket = response_update.into_json::<Bucket>().unwrap();
-    assert_eq!(returned_bucket.as_form(), new_bucket);
-    assert_eq!(returned_bucket.id(), bucket_id);
+    assert_eq!(returned_bucket, new_bucket);
+    assert_eq!(returned_bucket.id.unwrap(), bucket_id);
     // Read
     let response_read = client
         .get(format!("{}/{}", URL_BUCKET, bucket_id))
         .dispatch();
     assert_eq!(response_read.status(), Status::Ok);
-    assert_eq!(response_read.into_json::<BucketForm>(), Some(new_bucket));
+    assert_eq!(response_read.into_json::<Bucket>(), Some(new_bucket));
 }
 
 #[test]
