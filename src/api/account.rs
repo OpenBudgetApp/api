@@ -35,7 +35,6 @@ async fn create(
     db: DbConnection,
     account_form: Json<AccountForm>,
 ) -> Result<Created<Json<Account>>, Conflict<&'static str>> {
-    let account_name = account_form.name();
     db.run(move |conn| {
         diesel::insert_into(schema::accounts::table)
             .values(&*account_form)
@@ -43,18 +42,7 @@ async fn create(
     })
     .await
     .map_err(|_| Conflict(Some("Account already exists.")))?;
-    // While diesel 2.0.0 isn't compatible with Rocket, we can't use `get_result`
-    // Currently replacing this function manually
-    let last_account = db
-        .run(move |conn| {
-            schema::accounts::table
-                .filter(schema::accounts::name.eq(account_name))
-                .first::<Account>(conn)
-        })
-        .await
-        .map(Json)
-        .unwrap();
-    Ok(Created::new("/").body(last_account))
+    Ok(Created::new("/").body(get_last_account(&db).await.map(Json).unwrap()))
 }
 
 #[delete("/<account_id>")]
@@ -75,18 +63,14 @@ async fn update(
     account_form: Json<AccountForm>,
     account_id: i32,
 ) -> Json<Account> {
-    let account_new_name = account_form.name();
     db.run(move |conn| {
         diesel::update(schema::accounts::table)
             .filter(schema::accounts::id.eq(account_id))
             .set(&*account_form)
             .execute(conn)
-    })
-    .await
-    .unwrap();
-    db.run(move |conn| {
+            .unwrap();
         schema::accounts::table
-            .filter(schema::accounts::name.eq(account_new_name))
+            .filter(schema::accounts::id.eq(account_id))
             .first::<Account>(conn)
     })
     .await
@@ -99,6 +83,17 @@ async fn destroy(db: DbConnection) {
     db.run(|conn| diesel::delete(schema::accounts::table).execute(conn))
         .await
         .unwrap();
+}
+
+// While diesel 2.0.0 isn't compatible with Rocket, we can't use `get_result`
+// Currently replacing this function manually
+async fn get_last_account(db: &DbConnection) -> Result<Account, diesel::result::Error> {
+    db.run(|conn| {
+        schema::accounts::table
+            .order(schema::accounts::id.desc())
+            .first::<Account>(conn)
+    })
+    .await
 }
 
 pub fn stage() -> AdHoc {

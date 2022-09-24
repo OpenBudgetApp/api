@@ -4,7 +4,7 @@ use crate::schema;
 use chrono::NaiveDate;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use rocket::fairing::AdHoc;
-use rocket::response::status::{Conflict, NotFound, Created};
+use rocket::response::status::{Conflict, Created, NotFound};
 use rocket::serde::json::Json;
 use rocket::{delete, get, post, put, routes};
 
@@ -64,10 +64,14 @@ async fn update(db: DbConnection, form: Json<TransactionForm>, id: i32) -> Json<
             .filter(schema::transactions::id.eq(id))
             .set(&*form)
             .execute(conn)
+            .unwrap();
+        schema::transactions::table
+            .filter(schema::transactions::id.eq(id))
+            .first::<Transaction>(conn)
     })
     .await
-    .unwrap();
-    get_last_transaction(&db).await.map(Json).unwrap()
+    .map(Json)
+    .unwrap()
 }
 
 #[delete("/")]
@@ -113,6 +117,39 @@ async fn read_transactions_for_account_for_period(
     .unwrap()
 }
 
+#[get("/bucket/<id>/transactions")]
+async fn read_transactions_for_bucket(db: DbConnection, id: i32) -> Json<Vec<Transaction>> {
+    db.run(move |conn| {
+        schema::transactions::table
+            .filter(schema::transactions::bucket_id.eq(id))
+            .load::<Transaction>(conn)
+    })
+    .await
+    .map(Json)
+    .unwrap()
+}
+
+#[get("/bucket/<id>/transactions/<year>/<month>")]
+async fn read_transactions_for_bucket_for_period(
+    db: DbConnection,
+    id: i32,
+    year: i32,
+    month: u8,
+) -> Json<Vec<Transaction>> {
+    let from_date = NaiveDate::from_ymd(year, month.into(), 1).and_hms(0, 0, 0);
+    let to_date = NaiveDate::from_ymd(year, month as u32 + 1, 1).and_hms(0, 0, 0);
+    db.run(move |conn| {
+        schema::transactions::table
+            .filter(schema::transactions::bucket_id.eq(id))
+            .filter(schema::transactions::date.ge(from_date))
+            .filter(schema::transactions::date.lt(to_date))
+            .load::<Transaction>(conn)
+    })
+    .await
+    .map(Json)
+    .unwrap()
+}
+
 // While diesel 2.0.0 isn't compatible with Rocket, we can't use `get_result`
 // Currently replacing this function manually
 async fn get_last_transaction(db: &DbConnection) -> Result<Transaction, diesel::result::Error> {
@@ -136,6 +173,13 @@ pub fn stage() -> AdHoc {
                 routes![
                     read_transactions_for_account,
                     read_transactions_for_account_for_period
+                ],
+            )
+            .mount(
+                "/",
+                routes![
+                    read_transactions_for_bucket,
+                    read_transactions_for_bucket_for_period
                 ],
             )
     })

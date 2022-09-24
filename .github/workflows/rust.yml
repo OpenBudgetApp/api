@@ -21,6 +21,6 @@ jobs:
     - name: Install diesel_cli
       run: cargo install diesel_cli --no-default-features --features sqlite
     - name: Setup database
-      run: diesel setup --database-url db.sqlite
+      run: diesel setup
     - name: Run tests
       run: cargo test --verbose -- --test-threads=1

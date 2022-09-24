@@ -2,10 +2,9 @@ mod common;
 
 use rocket::http::Status;
 
-use oba_api::models::{Account, AccountForm};
-
 use common::Setup;
 use common::ACCOUNT_NUMBER;
+use common::Account;
 
 const URL: &str = "/account";
 
@@ -15,10 +14,10 @@ fn test_account_create() {
     let client = &Setup::new().client;
     // Create accounts
     for account_index in 1..=ACCOUNT_NUMBER {
-        let account_form = AccountForm::new(format!("account_name_{account_index}"));
+        let account_form = Account::new(format!("account_name_{account_index}"));
         let response = client.post(URL).json(&account_form).dispatch();
         assert_eq!(response.status(), Status::Created);
-        assert_eq!(response.into_json::<AccountForm>(), Some(account_form));
+        assert_eq!(response.into_json::<Account>(), Some(account_form));
     }
 }
 
@@ -27,7 +26,7 @@ fn test_account_create_same_name() {
     // Setup test
     let client = &Setup::new().client;
     // Create account twice
-    let account_form = AccountForm::new(String::from("account_name"));
+    let account_form = Account::new(String::from("account_name"));
     client.post(URL).json(&account_form).dispatch();
     let response = client.post(URL).json(&account_form).dispatch();
     assert_eq!(response.status(), Status::Conflict);
@@ -40,7 +39,7 @@ fn test_account_list() {
     // Create accounts
     let mut account_forms = Vec::with_capacity(ACCOUNT_NUMBER);
     for account_index in 1..=ACCOUNT_NUMBER {
-        let account = AccountForm::new(format!("account_name_{account_index}"));
+        let account = Account::new(format!("account_name_{account_index}"));
         client.post(URL).json(&account).dispatch();
         account_forms.push(account);
     }
@@ -50,10 +49,7 @@ fn test_account_list() {
     let accounts = response.into_json::<Vec<Account>>().unwrap();
     assert_eq!(accounts.len(), ACCOUNT_NUMBER);
     assert_eq!(
-        accounts
-            .iter()
-            .map(Account::as_form)
-            .collect::<Vec<AccountForm>>(),
+        accounts,
         account_forms
     );
 }
@@ -63,7 +59,7 @@ fn test_account_read() {
     // Setup test
     let client = &Setup::new().client;
     // Create an account and get back id
-    let account_form = AccountForm::new(String::from("account_name"));
+    let account_form = Account::new(String::from("account_name"));
     let account_request = client
         .post(URL)
         .json(&account_form)
@@ -72,7 +68,7 @@ fn test_account_read() {
         .unwrap();
     // Read
     let response = client
-        .get(format!("{}/{}", URL, account_request.id()))
+        .get(format!("{}/{}", URL, account_request.id.unwrap()))
         .dispatch();
     assert_eq!(response.status(), Status::Ok);
     assert_eq!(response.into_json::<Account>(), Some(account_request));
@@ -92,14 +88,14 @@ fn test_account_delete() {
     // Setup test
     let client = &Setup::new().client;
     // Create an account and get back id
-    let account_form = AccountForm::new(String::from("account_name"));
+    let account_form = Account::new(String::from("account_name"));
     let account_id = client
         .post(URL)
         .json(&account_form)
         .dispatch()
         .into_json::<Account>()
         .unwrap()
-        .id();
+        .id.unwrap();
     // Delete account
     client.delete(format!("{}/{}", URL, account_id)).dispatch();
     // Try reading
@@ -110,30 +106,33 @@ fn test_account_delete() {
 #[test]
 fn test_account_update() {
     // Setup test
-    let client = &Setup::new().client;
+    let setup = Setup::new();
+    let client = &setup.client;
     // Create an account and get back id
-    let account_form = AccountForm::new(String::from("account_name"));
+    let account_form = Account::new(String::from("account_name"));
+    setup.create_account();
     let account_id = client
         .post(URL)
         .json(&account_form)
         .dispatch()
         .into_json::<Account>()
         .unwrap()
-        .id();
+        .id.unwrap();
+    setup.create_account();
     // Update account
-    let new_account = AccountForm::new(String::from("new_name"));
+    let new_account = Account::new(String::from("new_name"));
     let response_update = client
         .put(format!("{}/{}", URL, account_id))
         .json(&new_account)
         .dispatch();
     assert_eq!(response_update.status(), Status::Ok);
     let returned_account = response_update.into_json::<Account>().unwrap();
-    assert_eq!(returned_account.as_form(), new_account);
-    assert_eq!(returned_account.id(), account_id);
+    assert_eq!(returned_account, new_account);
+    assert_eq!(returned_account.id, Some(account_id));
     // Read
     let response_read = client.get(format!("{}/{}", URL, account_id)).dispatch();
     assert_eq!(response_read.status(), Status::Ok);
-    assert_eq!(response_read.into_json::<AccountForm>(), Some(new_account));
+    assert_eq!(response_read.into_json::<Account>(), Some(new_account));
 }
 
 #[test]
