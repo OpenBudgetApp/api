@@ -1,4 +1,11 @@
+use std::env;
+
 use chrono::{Local, NaiveDateTime};
+use dotenvy::dotenv;
+use rocket::figment::{
+    util::map,
+    value::{Map, Value},
+};
 use rocket::local::blocking::Client;
 use rocket::serde::{Deserialize, Serialize};
 
@@ -11,8 +18,16 @@ pub struct Setup {
 
 impl Setup {
     pub fn new() -> Self {
+        // Configure database from .env
+        dotenv().ok();
+        let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+        let db: Map<_, Value> = map! {
+            "url" => database_url.into()
+        };
+        let figment = rocket::Config::figment().merge(("databases", map!["sqlite" => db]));
+
         let client = Client::tracked(
-            rocket::build()
+            rocket::custom(figment)
                 .attach(DbConnection::fairing())
                 .attach(account::stage())
                 .attach(transaction::stage())
