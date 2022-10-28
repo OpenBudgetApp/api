@@ -1,13 +1,30 @@
 use std::env;
 
 use dotenvy::dotenv;
-use rocket::figment::{
-    util::map,
-    value::{Map, Value},
+use rocket::{
+    fairing::AdHoc,
+    figment::{
+        util::map,
+        value::{Map, Value},
+    },
+    Build, Rocket,
 };
+#[macro_use]
+extern crate diesel_migrations;
 
 use oba_api::api::{account, bucket, fill, transaction};
 use oba_api::DbConnection;
+
+async fn run_migrations(rocket: Rocket<Build>) -> Rocket<Build> {
+    embed_migrations!("./migrations");
+    let db = DbConnection::get_one(&rocket)
+        .await
+        .expect("database connection");
+    db.run(|conn| embedded_migrations::run(conn))
+        .await
+        .expect("diesel migrations");
+    rocket
+}
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
@@ -21,6 +38,7 @@ async fn main() -> Result<(), rocket::Error> {
 
     let _rocket = rocket::custom(figment)
         .attach(DbConnection::fairing())
+        .attach(AdHoc::on_ignite("Diesel Migrations", run_migrations))
         .attach(account::stage())
         .attach(transaction::stage())
         .attach(bucket::stage())
